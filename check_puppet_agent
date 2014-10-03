@@ -70,6 +70,8 @@ result () {
     5) echo "UNKNOWN: no WARN or CRIT parameters were sent to this check";rc=3 ;;
     6) echo "CRITICAL: Last run had 1 or more errors. Check the logs";rc=2 ;;
     7) echo "WARNING: ${last_run_log}" ;rc=1 ;;
+    8) echo "WARNING: Puppet disabled but reason not specified. Please set a reason when disabling Puppet"; rc=1 ;;
+    9) echo "OK: Puppet administratively disabled - reason: ${reason}"; rc=0 ;;
   esac
   exit $rc
 }
@@ -118,6 +120,17 @@ while getopts "c:d:s:w:" opt; do
     ;;
   esac
 done
+
+
+# First check if Puppet is disabled
+if [ -f /var/lib/puppet/state/agent_disabled.lock ]; then
+  reason=`cat /var/lib/puppet/state/agent_disabled.lock | sed -e 's/[{}]/''/g' | awk -v RS=',"' -F: '{print $2}'`
+  if [[ $reason = '"reason not specified"' ]]; then
+   result 8
+  else
+   result 9
+  fi
+fi
 
 # if the lastrunfile is not given as a param try to find it ourselves
 [ -z "${lastrunfile}" ] && lastrunfile=$(sudo /usr/bin/puppet config print lastrunfile)
